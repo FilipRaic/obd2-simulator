@@ -1,0 +1,18 @@
+{
+  "name": "Cold start with misfire",
+  "profile": "idle",
+  "vin": "WVWZZZ1KZAW000001",
+  "sensors": {
+    "coolant_temp_c": -10,
+    "oil_temp_c": -8,
+    "intake_air_temp_c": -10,
+    "ambient_air_temp_c": -12,
+    "rpm": 1100,
+    "fuel_level_pct": 65
+  },
+  "dtcs": [
+    { "code": "P0301", "state": "confirmed" },
+    { "code": "P0171", "state": "pending" }
+  ],
+  "mil_on": true
+}

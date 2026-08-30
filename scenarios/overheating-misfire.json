@@ -1,0 +1,17 @@
+{
+  "name": "Overheating with misfire",
+  "profile": "idle",
+  "vin": "WVWZZZ1KZAW000001",
+  "sensors": {
+    "coolant_temp_c": 112,
+    "rpm": 850,
+    "vehicle_speed_kmh": 0,
+    "fuel_level_pct": 42,
+    "control_module_v": 13.8
+  },
+  "dtcs": [
+    { "code": "P0301", "state": "confirmed" },
+    { "code": "P0128", "state": "pending" }
+  ],
+  "mil_on": true
+}

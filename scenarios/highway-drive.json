@@ -1,0 +1,12 @@
+{
+  "name": "Highway drive, no faults",
+  "profile": "drive",
+  "vin": "WVWZZZ1KZAW000001",
+  "sensors": {
+    "coolant_temp_c": 90,
+    "oil_temp_c": 95,
+    "fuel_level_pct": 55
+  },
+  "dtcs": [],
+  "mil_on": false
+}

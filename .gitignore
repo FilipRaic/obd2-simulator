@@ -1,0 +1,50 @@
+# Build outputs
+build/
+cmake-build-*/
+firmware/.pio/
+
+# IDE
+.idea/
+.vscode/
+
+# Temporary documents
+docs/
+hardware/kicad/.history
+hardware/kicad/can_chain.json
+
+# Python bytecode
+__pycache__/
+*.pyc
+*.pyo
+
+# KiCad local state and safety copies. The .kicad_pro project file is tracked,
+# the .kicad_prl is per-user GUI state, and the rest is what KiCad writes next
+# to the board while it is open.
+*.kicad_prl
+*-backups/
+*.kicad_pcb-bak
+*_autosave-*
+fp-info-cache
+*.net
+
+# Board routing scratch: .dsn goes to Freerouting, .ses comes back, the DRC
+# reports describe one run. route_board.ps1 keeps all of it in TEMP, this is
+# only for when a step is run by hand from the repository.
+*.dsn
+*.ses
+drc*.json
+
+# Bring-up and bench logs, they are measurements and not code
+firmware/boot_log.txt
+firmware/tools/elm327/reconnect_test.txt
+firmware/tools/elm327/response_time.txt
+firmware/tools/elm327/service_tests.txt
+firmware/tools/elm327/soak_test.txt
+
+# Third-party router, 58 MB. See hardware/kicad/tools/README.md for where to
+# get it and which version the board was routed with.
+hardware/kicad/tools/freerouting.jar
+
+# OS junk
+Thumbs.db
+.DS_Store

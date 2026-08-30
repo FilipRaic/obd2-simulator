@@ -1,0 +1,32 @@
+# Host-side protocol tests. The core in include/ and src/ has no hardware
+# dependency and no external libraries, so it builds and runs on a plain
+# ubuntu runner. The firmware itself is not built here: it needs the
+# PlatformIO ESP32 toolchain, which is a much heavier job than a PR check
+# should carry.
+#
+# Both branch names are listed so a later master -> main rename does not
+# silently stop this workflow from running.
+name: tests
+
+on:
+  push:
+    branches: [master, main]
+  pull_request:
+    branches: [master, main]
+
+jobs:
+  core-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure
+        run: cmake -B build
+
+      - name: Build
+        run: cmake --build build
+
+      # sim_test returns the failure count as its exit code, so a single
+      # failed case fails the job.
+      - name: Test
+        run: ctest --test-dir build --output-on-failure
