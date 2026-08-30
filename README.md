@@ -38,11 +38,11 @@ the wiki carry the same content.
 
 | Question | Wiki page | In this repository |
 |---|---|---|
-| What is this and what can it do | [Home](../../wiki/Home-EN) | this file |
-| How do I build one | [Building the device](../../wiki/Building-the-device-EN) | [`hardware/README.md`](hardware/README.md), and [`hardware/gerber/README.md`](hardware/gerber/README.md) before ordering |
-| How do I compile and flash it | [Firmware](../../wiki/Firmware-EN) | [`firmware/README.md`](firmware/README.md), and [`firmware/tools/README.md`](firmware/tools/README.md) when the ordinary upload path is unavailable |
-| How do I drive it | [Usage](../../wiki/Usage-EN) | [`scenarios/README.md`](scenarios/README.md) for the JSON format |
-| How do I contribute | [Contributing](../../wiki/Contributing-EN) | the conventions below |
+| What is this and what can it do | [Home](../../wiki/Home) | this file |
+| How do I build one | [Building the device](../../wiki/Building-the-device) | [`hardware/README.md`](hardware/README.md), and [`hardware/gerber/README.md`](hardware/gerber/README.md) before ordering |
+| How do I compile and flash it | [Firmware](../../wiki/Firmware) | [`firmware/README.md`](firmware/README.md), and [`firmware/tools/README.md`](firmware/tools/README.md) when the ordinary upload path is unavailable |
+| How do I drive it | [Usage](../../wiki/Usage) | [`scenarios/README.md`](scenarios/README.md) for the JSON format |
+| How do I contribute | [Contributing](../../wiki/Contributing) | the conventions below |
 | How is the board generated | - | [`hardware/kicad/scripts/README.md`](hardware/kicad/scripts/README.md) |
 
 Two internal documents govern changes to this project, and neither is published
