@@ -1,0 +1,1388 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OBD-II Simulator - open-source ECU simulator</title>
+    <meta name="description"
+          content="Open-source OBD-II simulator board: emulates a vehicle ECU per SAE J1979 and ISO 15031-5 over the CAN bus. ESP32-S3, EUR 40 to 60, fully open schematics and code.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Saira+Condensed:wght@500;600;700&family=Barlow:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap"
+          rel="stylesheet">
+    <!-- Favicon: the MIL "check engine" lamp from the hero, inlined so the page stays a single file.
+         SVG for modern browsers, the PNG below is the fallback for those that ignore SVG icons. -->
+    <link rel="icon" type="image/svg+xml"
+          href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect width='24' height='24' rx='5' fill='%230b0f14'/%3E%3Cg transform='translate(12 12) scale(.92) translate(-12 -12)'%3E%3Cpath fill='%23ffb000' d='M7 4h10l2 3h3v2h-2v7a2 2 0 0 1-2 2h-1a2 2 0 1 1-4 0h-2a2 2 0 1 1-4 0H6a2 2 0 0 1-2-2v-5H2V9h2l3-5zm1.2 2L6.5 9h11l-1.7-3H8.2zM6 11v5h12v-5H6z'/%3E%3C/g%3E%3C/svg%3E">
+    <link rel="alternate icon" type="image/png" sizes="32x32"
+          href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAADRklEQVR4nOxXXUhTcRT//be7jza3oS6LEDPLolKYFWVfEEYPghbUi/bUQ1LgwwgSC3ozsKTPR6UMeqmIqAdpBJmSlJMsZ2ofPphiBErt08193O32v3dtc7ldp+X24g9297/3nHvO+Z97zvmfw2AOlDpdkZRjjBywC4QYCKDCfwCV5wHHWai8/iBhb3sdjrEIjUQWKk3OaUgkN+mDLCwjqDEzCIWMHpe1nb+XCsp1+rOEkFaqXI5lBq+D6jomU6qmAj5PP1HodBulkA1SghppBPWEGwFslioUGiMhOII0Q/C2BDMMVX4IGQNXztCLYU4sJkTFdj8aqmexGNwyrcKLQfGQIqCZptbpOTEmOcPhY4sN+bkhLAY2N0FZYzZ+uiSifAwWQONRT1T50IQUdo+4wGx1CCUFQfrPobXOhRM3dKL8oh4oXsui77IdchnwbVqCnRez4WfFPxfvsQ/NNhTmhY1ueqLC21FZlD40STfhlqRmwMtLdpQXs8K66qoW3Z9SKxOVBh8en3MlpFW3aNE1EpOT1J81e71R5R3v5Skr52GyKNA1LEuJNy4GDIUsmmvcwrq0gI0+L1oThOmCA4uBXhsL2rEpCerbNcKa/wRJDcihAXRwa2CesG35QXoNYqlwewl6viT2SJwBVhocPZ/DjDs2BKBWAtMOgq8/FkyWhNiyjkWeTjTL4w2wjDOovBJOG3OTTUinzmE56to0WArunHGhZp9PlEc8qdOAFQNWDEiaX8PfGSELavf7hN+/gJeVDEk9cP+1Ak6P+MGTChz0WL7XrUxKFz2MCOFgWM8KR+uz807aNMdonUMyXOsId+0N1R5UlMQqKEuL5vHrWqEnsEwwtCNPvhHREse/ODAerox8d1NZ5o/S7tJdRcrrao0yzgCTRY5XI6kdXgt2RBFkKUOopVVt9yYWD94o/lLA0bYtgJMHfDCPMnjYq8CMN7X4Jiptrpn26XuQAXAc1yfhRyZkCDQyzESuzi5lGGlvJgYTNhgslwYD3mk6JlmpAVVIL4xel/W50J7wM5pMrpykeXd4uefDP8Npvcf5q42/j/ZHAf/sgFQpe0S4SLYTPZ2altaJzFfKj+fv6Oaehgh7atZp74zQfgMAAP//wA0nXQAAAAZJREFUAwAFfxUFmc6mqgAAAABJRU5ErkJggg==">
+    <style>
+        :root {
+            --bg: #0b0f14;
+            --panel: #111823;
+            --panel-2: #0e141d;
+            --line: #1e2936;
+            --ink: #e8eef4;
+            --ink-dim: #8fa0b0;
+            --ink-faint: #5c6b7a;
+            --amber: #ffb000; /* MIL "check engine" amber */
+            --amber-soft: rgba(255, 176, 0, .12);
+            --ok: #37c978; /* CAN dominant / pass */
+            --mono: 'IBM Plex Mono', ui-monospace, monospace;
+            --disp: 'Saira Condensed', sans-serif;
+            --body: 'Barlow', system-ui, sans-serif;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0
+        }
+
+        html {
+            scroll-behavior: smooth
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            html {
+                scroll-behavior: auto
+            }
+
+            *, *::before, *::after {
+                animation-duration: .01ms !important;
+                transition-duration: .01ms !important
+            }
+        }
+
+        body {
+            background: var(--bg);
+            color: var(--ink);
+            font-family: var(--body);
+            font-size: 17px;
+            line-height: 1.6;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        a {
+            color: var(--amber);
+            text-decoration: none
+        }
+
+        a:hover {
+            text-decoration: underline
+        }
+
+        a:focus-visible, button:focus-visible, select:focus-visible {
+            outline: 2px solid var(--amber);
+            outline-offset: 2px
+        }
+
+        .wrap {
+            max-width: 1060px;
+            margin: 0 auto;
+            padding: 0 24px
+        }
+
+        .eyebrow {
+            font-family: var(--mono);
+            font-size: .78rem;
+            letter-spacing: .18em;
+            text-transform: uppercase;
+            color: var(--ink-faint)
+        }
+
+        h1, h2, h3 {
+            font-family: var(--disp);
+            text-transform: uppercase;
+            letter-spacing: .02em;
+            line-height: 1.05
+        }
+
+        h2 {
+            font-size: clamp(1.7rem, 3.4vw, 2.3rem);
+            font-weight: 600;
+            margin: .35em 0 .8em
+        }
+
+        section {
+            padding: 72px 0;
+            border-top: 1px solid var(--line)
+        }
+
+        /* ---------- header ---------- */
+        header.site {
+            position: sticky;
+            top: 0;
+            z-index: 50;
+            background: rgba(11, 15, 20, .88);
+            backdrop-filter: blur(8px);
+            border-bottom: 1px solid var(--line)
+        }
+
+        .nav {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            height: 58px
+        }
+
+        .brand {
+            font-family: var(--disp);
+            font-weight: 700;
+            font-size: 1.05rem;
+            letter-spacing: .06em;
+            color: var(--ink);
+            text-transform: uppercase
+        }
+
+        .brand .dot {
+            color: var(--amber)
+        }
+
+        .nav-links {
+            margin-left: auto;
+            display: flex;
+            gap: 22px;
+            flex-wrap: wrap
+        }
+
+        .nav-links a {
+            color: var(--ink-dim);
+            font-size: .92rem
+        }
+
+        .nav-links a:hover {
+            color: var(--ink);
+            text-decoration: none
+        }
+
+        /* ---------- language switcher ---------- */
+        .lang {
+            display: flex;
+            flex: none;
+            border: 1px solid var(--line);
+            border-radius: 4px;
+            overflow: hidden
+        }
+
+        .lang button {
+            cursor: pointer;
+            background: none;
+            border: none;
+            color: var(--ink-faint);
+            font-family: var(--mono);
+            font-size: .76rem;
+            letter-spacing: .1em;
+            padding: 6px 10px;
+            transition: background .15s, color .15s
+        }
+
+        .lang button + button {
+            border-left: 1px solid var(--line)
+        }
+
+        .lang button:hover {
+            color: var(--ink)
+        }
+
+        .lang button[aria-pressed="true"] {
+            background: var(--amber-soft);
+            color: var(--amber)
+        }
+
+        /* ---------- hero ---------- */
+        .hero {
+            padding: 88px 0 72px;
+            border-top: none;
+            position: relative;
+            overflow: hidden
+        }
+
+        .hero::before {
+            content: "";
+            position: absolute;
+            inset: 0;
+            pointer-events: none;
+            background: radial-gradient(600px 300px at 80% 0%, rgba(255, 176, 0, .07), transparent 70%),
+            repeating-linear-gradient(0deg, transparent 0 34px, rgba(255, 255, 255, .018) 34px 35px);
+        }
+
+        .hero .wrap {
+            position: relative
+        }
+
+        .hero h1 {
+            font-size: clamp(2.6rem, 7vw, 4.6rem);
+            font-weight: 700;
+            margin: .4em 0 .25em
+        }
+
+        .hero h1 .thin {
+            color: var(--ink-dim);
+            font-weight: 500
+        }
+
+        .lede {
+            max-width: 640px;
+            color: var(--ink-dim);
+            font-size: 1.08rem
+        }
+
+        .hero-cta {
+            display: flex;
+            gap: 14px;
+            margin-top: 34px;
+            flex-wrap: wrap
+        }
+
+        .btn {
+            display: inline-block;
+            font-family: var(--disp);
+            text-transform: uppercase;
+            letter-spacing: .08em;
+            font-weight: 600;
+            font-size: .95rem;
+            padding: 13px 26px;
+            border: 1px solid var(--amber);
+            border-radius: 4px;
+            color: var(--amber);
+            transition: background .15s, color .15s
+        }
+
+        .btn:hover {
+            background: var(--amber);
+            color: #14100a;
+            text-decoration: none
+        }
+
+        .btn.primary {
+            background: var(--amber);
+            color: #14100a
+        }
+
+        .btn.primary:hover {
+            background: #ffc23d;
+            border-color: #ffc23d
+        }
+
+        .btn.ghost {
+            border-color: var(--line);
+            color: var(--ink-dim)
+        }
+
+        .btn.ghost:hover {
+            background: var(--panel);
+            color: var(--ink)
+        }
+
+
+        .aside-note {
+            font-size: .85rem;
+            color: var(--ink-faint);
+            margin-top: 12px;
+            max-width: 680px
+        }
+
+        .mil-line {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-top: 8px
+        }
+
+        .mil-lamp {
+            width: 38px;
+            height: 38px;
+            flex: none;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            border: 1px solid var(--line);
+            border-radius: 8px;
+            background: var(--panel-2)
+        }
+
+        .mil-lamp svg {
+            width: 24px;
+            height: 24px;
+            fill: #3a4552;
+            transition: fill .2s, filter .2s
+        }
+
+        .mil-lamp.on svg {
+            fill: var(--amber);
+            filter: drop-shadow(0 0 7px rgba(255, 176, 0, .8))
+        }
+
+        .hero-stats {
+            display: grid;
+            grid-template-columns:repeat(auto-fit, minmax(150px, 1fr));
+            gap: 1px;
+            background: var(--line);
+            border: 1px solid var(--line);
+            margin-top: 52px;
+            border-radius: 6px;
+            overflow: hidden
+        }
+
+        .stat {
+            background: var(--panel-2);
+            padding: 18px 20px
+        }
+
+        .stat b {
+            display: block;
+            font-family: var(--mono);
+            font-size: 1.35rem;
+            font-weight: 600;
+            color: var(--ink)
+        }
+
+        .stat span {
+            font-size: .82rem;
+            color: var(--ink-faint)
+        }
+
+        /* ---------- demo (signature) ---------- */
+        .demo-box {
+            border: 1px solid var(--line);
+            border-radius: 8px;
+            background: var(--panel);
+            overflow: hidden
+        }
+
+        .demo-head {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 12px 18px;
+            border-bottom: 1px solid var(--line);
+            background: var(--panel-2);
+            font-family: var(--mono);
+            font-size: .8rem;
+            color: var(--ink-faint)
+        }
+
+        .demo-head .led {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--ok);
+            box-shadow: 0 0 6px rgba(55, 201, 120, .7)
+        }
+
+        .demo-grid {
+            display: grid;
+            grid-template-columns:280px 1fr
+        }
+
+        @media (max-width: 760px) {
+            .demo-grid {
+                grid-template-columns:1fr
+            }
+        }
+
+        .demo-side {
+            border-right: 1px solid var(--line);
+            padding: 20px
+        }
+
+        @media (max-width: 760px) {
+            .demo-side {
+                border-right: none;
+                border-bottom: 1px solid var(--line)
+            }
+        }
+
+        .demo-side label {
+            display: block;
+            font-size: .85rem;
+            color: var(--ink-dim);
+            margin: 14px 0 6px
+        }
+
+        .demo-side select {
+            width: 100%;
+            background: var(--panel-2);
+            color: var(--ink);
+            border: 1px solid var(--line);
+            border-radius: 4px;
+            padding: 10px 12px;
+            font-family: var(--mono);
+            font-size: .9rem
+        }
+
+        .toggle {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-top: 16px;
+            cursor: pointer;
+            background: none;
+            border: 1px solid var(--line);
+            border-radius: 4px;
+            padding: 10px 12px;
+            width: 100%;
+            color: var(--ink-dim);
+            font-family: var(--body);
+            font-size: .9rem;
+            text-align: left
+        }
+
+        .toggle .sw {
+            width: 34px;
+            height: 18px;
+            border-radius: 9px;
+            background: #2a3542;
+            position: relative;
+            flex: none;
+            transition: background .15s
+        }
+
+        .toggle .sw::after {
+            content: "";
+            position: absolute;
+            top: 2px;
+            left: 2px;
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            background: var(--ink-dim);
+            transition: left .15s, background .15s
+        }
+
+        .toggle.on {
+            color: var(--amber);
+            border-color: rgba(255, 176, 0, .4)
+        }
+
+        .toggle.on .sw {
+            background: var(--amber-soft)
+        }
+
+        .toggle.on .sw::after {
+            left: 18px;
+            background: var(--amber)
+        }
+
+        .send {
+            margin-top: 18px;
+            width: 100%;
+            cursor: pointer;
+            font-family: var(--disp);
+            text-transform: uppercase;
+            letter-spacing: .08em;
+            font-weight: 600;
+            font-size: .95rem;
+            padding: 12px;
+            background: var(--amber);
+            border: none;
+            border-radius: 4px;
+            color: #14100a
+        }
+
+        .send:hover {
+            background: #ffc23d
+        }
+
+        .demo-out {
+            padding: 20px;
+            font-family: var(--mono);
+            font-size: .88rem
+        }
+
+        .frame {
+            margin-bottom: 18px
+        }
+
+        .frame .tag {
+            font-size: .72rem;
+            letter-spacing: .14em;
+            text-transform: uppercase;
+            color: var(--ink-faint)
+        }
+
+        .frame .bytes {
+            margin-top: 6px;
+            padding: 12px 14px;
+            background: var(--panel-2);
+            border: 1px solid var(--line);
+            border-radius: 4px;
+            color: var(--ink);
+            word-spacing: .35em;
+            overflow-x: auto;
+            white-space: nowrap
+        }
+
+        .frame .bytes .id {
+            color: var(--amber)
+        }
+
+        .frame .bytes .pad {
+            color: var(--ink-faint)
+        }
+
+        .decoded {
+            display: flex;
+            align-items: baseline;
+            gap: 12px;
+            flex-wrap: wrap;
+            border-top: 1px dashed var(--line);
+            padding-top: 14px
+        }
+
+        .decoded .val {
+            font-size: 1.9rem;
+            font-weight: 600;
+            color: var(--ok)
+        }
+
+        .decoded .val.mil-on {
+            color: var(--amber)
+        }
+
+        .decoded .unit {
+            color: var(--ink-dim)
+        }
+
+        .decoded .formula {
+            width: 100%;
+            font-size: .78rem;
+            color: var(--ink-faint)
+        }
+
+        .demo-note {
+            font-family: var(--body);
+            font-size: .85rem;
+            color: var(--ink-faint);
+            margin-top: 14px
+        }
+
+        /* ---------- features ---------- */
+        .grid {
+            display: grid;
+            grid-template-columns:repeat(auto-fit, minmax(280px, 1fr));
+            gap: 18px
+        }
+
+        .card {
+            border: 1px solid var(--line);
+            border-radius: 8px;
+            background: var(--panel);
+            padding: 24px
+        }
+
+        .card h3 {
+            font-size: 1.15rem;
+            font-weight: 600;
+            margin-bottom: .5em;
+            color: var(--ink)
+        }
+
+        .card p {
+            font-size: .95rem;
+            color: var(--ink-dim)
+        }
+
+        .card .k {
+            font-family: var(--mono);
+            font-size: .75rem;
+            color: var(--amber);
+            letter-spacing: .1em;
+            display: block;
+            margin-bottom: 10px
+        }
+
+        /* ---------- hardware / tables ---------- */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: .92rem
+        }
+
+        th, td {
+            text-align: left;
+            padding: 10px 14px;
+            border-bottom: 1px solid var(--line)
+        }
+
+        th {
+            font-family: var(--mono);
+            font-size: .74rem;
+            letter-spacing: .12em;
+            text-transform: uppercase;
+            color: var(--ink-faint);
+            font-weight: 500
+        }
+
+        td {
+            color: var(--ink-dim)
+        }
+
+        td:first-child {
+            color: var(--ink);
+            font-family: var(--mono);
+            font-size: .85rem
+        }
+
+        .table-scroll {
+            overflow-x: auto;
+            border: 1px solid var(--line);
+            border-radius: 8px;
+            background: var(--panel)
+        }
+
+        .two-col {
+            display: grid;
+            grid-template-columns:1fr 1fr;
+            gap: 32px;
+            align-items: start
+        }
+
+        @media (max-width: 860px) {
+            .two-col {
+                grid-template-columns:1fr
+            }
+        }
+
+        .lead-p {
+            color: var(--ink-dim);
+            max-width: 680px;
+            margin-bottom: 28px
+        }
+
+        /* ---------- steps ---------- */
+        .steps {
+            counter-reset: step;
+            display: grid;
+            gap: 0;
+            border: 1px solid var(--line);
+            border-radius: 8px;
+            overflow: hidden
+        }
+
+        .step {
+            counter-increment: step;
+            display: grid;
+            grid-template-columns:70px 1fr;
+            background: var(--panel);
+            border-bottom: 1px solid var(--line)
+        }
+
+        .step:last-child {
+            border-bottom: none
+        }
+
+        .step::before {
+            content: counter(step, decimal-leading-zero);
+            font-family: var(--mono);
+            color: var(--amber);
+            font-size: .95rem;
+            display: flex;
+            align-items: flex-start;
+            justify-content: center;
+            padding-top: 22px;
+            border-right: 1px solid var(--line);
+            background: var(--panel-2)
+        }
+
+        .step div {
+            padding: 20px 22px
+        }
+
+        .step b {
+            color: var(--ink);
+            font-weight: 600
+        }
+
+        .step p {
+            font-size: .93rem;
+            color: var(--ink-dim);
+            margin-top: 4px
+        }
+
+        code {
+            font-family: var(--mono);
+            font-size: .85em;
+            background: var(--panel-2);
+            border: 1px solid var(--line);
+            border-radius: 3px;
+            padding: 2px 6px;
+            color: var(--ink)
+        }
+
+        /* ---------- footer ---------- */
+        footer {
+            border-top: 1px solid var(--line);
+            padding: 44px 0;
+            color: var(--ink-faint);
+            font-size: .88rem
+        }
+
+        footer .wrap {
+            display: flex;
+            justify-content: space-between;
+            gap: 20px;
+            flex-wrap: wrap
+        }
+    </style>
+</head>
+<body>
+
+<header class="site">
+    <div class="wrap nav">
+        <span class="brand">OBD-II<span class="dot">·</span>SIM</span>
+        <nav class="nav-links" id="mainNav" aria-label="Main navigation">
+            <a href="#demo" data-i18n="nav.demo">Demo</a>
+            <a href="#features" data-i18n="nav.features">Features</a>
+            <a href="#hardware" data-i18n="nav.hardware">Hardware</a>
+            <a href="#build" data-i18n="nav.build">Build it yourself</a>
+            <a href="#contribute" data-i18n="nav.contribute">Contribute</a>
+            <a href="https://github.com/FilipRaic/obd2-simulator" rel="noopener">GitHub ↗</a>
+        </nav>
+        <div class="lang" id="langSwitch" role="group" aria-label="Language / Jezik">
+            <button type="button" data-lang="en" aria-pressed="true" lang="en">EN</button>
+            <button type="button" data-lang="hr" aria-pressed="false" lang="hr">HR</button>
+        </div>
+    </div>
+</header>
+
+<!-- ============ HERO ============ -->
+<section class="hero">
+    <div class="wrap">
+        <div class="mil-line">
+      <span class="mil-lamp on" id="heroMil" aria-hidden="true">
+        <svg viewBox="0 0 24 24"><path
+                d="M7 4h10l2 3h3v2h-2v7a2 2 0 0 1-2 2h-1a2 2 0 1 1-4 0h-2a2 2 0 1 1-4 0H6a2 2 0 0 1-2-2v-5H2V9h2l3-5zm1.2 2L6.5 9h11l-1.7-3H8.2zM6 11v5h12v-5H6z"/></svg>
+      </span>
+            <span class="eyebrow" data-i18n="hero.eyebrow">Open hardware · SAE J1979 · ISO 15031-5</span>
+        </div>
+        <h1 data-i18n="hero.h1">ECU simulator<br><span class="thin">on your desk</span></h1>
+        <p class="lede" data-i18n="hero.lede">
+            An open-source OBD-II simulator board that behaves like a real vehicle towards any
+            diagnostic tool: 21 simulated parameters, a diagnostic trouble code bank with MIL
+            signalling and CAN communication per ISO 15765-4 - all from parts anyone can buy,
+            for EUR 40 to 60, depending on where the parts are bought.
+        </p>
+        <div class="hero-cta">
+            <a class="btn primary" href="https://github.com/FilipRaic/obd2-simulator" rel="noopener" data-i18n="hero.cta1">GitHub
+                repository</a>
+            <a class="btn" href="https://github.com/FilipRaic/obd2-simulator/wiki" rel="noopener" data-i18n="hero.cta2">Wiki
+                and guides</a>
+            <a class="btn ghost" href="#build" data-i18n="hero.cta3">How to build it</a>
+        </div>
+        <div class="hero-stats" role="list">
+            <div class="stat" role="listitem"><b>&lt; 8 ms</b><span data-i18n="stat.1">response time (standard limit: 50 ms)</span>
+            </div>
+            <div class="stat" role="listitem"><b>21</b><span data-i18n="stat.2">mode 0x01 PID parameters</span></div>
+            <div class="stat" role="listitem"><b>40 - 60 €</b><span data-i18n="stat.3">total parts cost</span></div>
+            <div class="stat" role="listitem"><b>USB-C</b><span data-i18n="stat.4">powered by a standard charger</span>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ============ DEMO ============ -->
+<section id="demo">
+    <div class="wrap">
+        <span class="eyebrow" data-i18n="demo.eyebrow">Interactive preview</span>
+        <h2 data-i18n="demo.h2">Send a diagnostic request</h2>
+        <p class="lead-p" data-i18n="demo.lead">
+            This is how the simulator answers on a real CAN bus. Pick a parameter - the frames below
+            are built by the same rules the firmware uses: a request on identifier
+            <code>0x7DF</code>, a response from <code>0x7E8</code>, encoding by the inverse formulas
+            of ISO 15031-5 and <code>55</code> padding per ISO 15765-4.
+        </p>
+
+        <div class="demo-box">
+            <div class="demo-head"><span class="led" aria-hidden="true"></span> CAN 2.0B · 500 kbit/s · 11-bit ID</div>
+            <div class="demo-grid">
+                <div class="demo-side">
+                    <label for="pidSel" data-i18n="demo.label">Parameter (mode 0x01)</label>
+                    <select id="pidSel"></select>
+                    <button class="toggle" id="milToggle" aria-pressed="false">
+                        <span class="sw" aria-hidden="true"></span>
+                        <span data-i18n="demo.mil">Trigger fault P0301 (MIL)</span>
+                    </button>
+                    <button class="send" id="sendBtn" data-i18n="demo.send">Send request</button>
+                </div>
+                <div class="demo-out" aria-live="polite">
+                    <div class="frame">
+                        <span class="tag" data-i18n="demo.tagReq">Request - diagnostic tool → simulator</span>
+                        <div class="bytes" id="reqBytes"></div>
+                    </div>
+                    <div class="frame">
+                        <span class="tag" data-i18n="demo.tagResp">Response - simulator (ECU 0x7E8) → tool</span>
+                        <div class="bytes" id="respBytes"></div>
+                    </div>
+                    <div class="decoded">
+                        <span class="val" id="decVal">-</span>
+                        <span class="unit" id="decUnit"></span>
+                        <span class="formula" id="decFormula"></span>
+                    </div>
+                    <p class="demo-note" data-i18n="demo.note">Values come from the same simulation model that runs on
+                        the device (idle profile, 10 Hz refresh).</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="hero-cta" style="margin-top:28px">
+            <a class="btn ghost" href="UI-demo/index.html" target="_blank" rel="noopener">
+                <span data-i18n="demo.uiLink">Open the interface mock-up</span>
+            </a>
+        </div>
+        <p class="aside-note" data-i18n="demo.uiNote">The mock-up draws the same screens the device shows on its TFT, and
+            you can walk them with the keyboard. It has its own EN/HR switcher, but the screen text stays English in
+            both, exactly as on the device.</p>
+    </div>
+</section>
+
+<!-- ============ FEATURES ============ -->
+<section id="features">
+    <div class="wrap">
+        <span class="eyebrow" data-i18n="feat.eyebrow">What the device does</span>
+        <h2 data-i18n="feat.h2">Features</h2>
+        <div class="grid">
+            <div class="card"><span class="k" data-i18n="feat.1k">MODE 0x01 / 0x02</span>
+                <h3 data-i18n="feat.1h">Real-time readings</h3>
+                <p data-i18n="feat.1p">21 parameters with correct conversion formulas - speed, engine rpm, temperatures,
+                    pressures, lambda sensor, fuel level - plus support bit masks (PID 0x00/0x20/0x40) and freeze frame
+                    values from the moment the fault appeared.</p></div>
+            <div class="card"><span class="k" data-i18n="feat.2k">MODE 0x03 / 0x04 / 0x07</span>
+                <h3 data-i18n="feat.2h">Fault bank and MIL</h3>
+                <p data-i18n="feat.2p">Up to 20 simultaneously active DTCs in pending and confirmed states, turning the
+                    "check engine" lamp on and off, and clearing faults from the tool - ideal for exercising fault
+                    handling without breaking a real car.</p></div>
+            <div class="card"><span class="k" data-i18n="feat.3k">MODE 0x09 · ISO-TP</span>
+                <h3 data-i18n="feat.3h">Vehicle identification</h3>
+                <p data-i18n="feat.3p">The vehicle VIN (17 characters) is transferred in multiple frames of the ISO
+                    15765-2 transport protocol (FF → FC → CF), including correct handling of flow-control frames and
+                    cyclic sequence numbers.</p></div>
+            <div class="card"><span class="k" data-i18n="feat.4k">INTERFACE</span>
+                <h3 data-i18n="feat.4h">Screen and physical controls</h3>
+                <p data-i18n="feat.4p">A 2.4" TFT next to a column of physical controls: an incremental encoder for
+                    setting values, a 5-way switch for navigation and the CONFIRM, CLEAR and RETURN buttons. Scenarios
+                    in JSON format live in the internal flash - over USB-C the device appears to the computer as a USB
+                    disk, and a plain USB stick imports and exports scenarios.</p></div>
+            <div class="card"><span class="k" data-i18n="feat.5k">SIMULATION</span>
+                <h3 data-i18n="feat.5h">Three operating profiles</h3>
+                <p data-i18n="feat.5p">Manual value entry, idle with the engine warming up towards operating
+                    temperature, and a driving profile in which speed, rpm, load and air flow are physically
+                    coupled.</p></div>
+            <div class="card"><span class="k" data-i18n="feat.6k">OPEN SOURCE</span>
+                <h3 data-i18n="feat.6h">Everything is public</h3>
+                <p data-i18n="feat.6p">Schematics, PCB files, the complete C++ (C++17) source code and 98 unit tests -
+                    all under the MIT licence. The same firmware, unmodified, compiles for the development and for the
+                    final build.</p></div>
+        </div>
+    </div>
+</section>
+
+<!-- ============ HARDWARE ============ -->
+<section id="hardware">
+    <div class="wrap">
+        <span class="eyebrow" data-i18n="hw.eyebrow">Under the hood</span>
+        <h2 data-i18n="hw.h2">Hardware</h2>
+        <div class="two-col">
+            <div>
+                <p class="lead-p" data-i18n="hw.p1">
+                    The heart of the device is the <strong>ESP32-S3-WROOM-1</strong> module (dual core 240 MHz,
+                    8 MB flash, Wi-Fi/BLE). The CAN chain consists of an <strong>MCP2515</strong> controller and
+                    an <strong>SN65HVD230</strong> transceiver with ESD protection up to the standard
+                    <strong>J1962</strong> connector. Power: USB-C → CH224K (PD sink, requests 12 V) → TPS562201
+                    to 3.3 V, with 12 V on pin 16 that powers the diagnostic tool.
+                </p>
+                <p class="lead-p" data-i18n="hw.p2">
+                    The dedicated two-layer board measuring <strong>130 × 115 mm</strong> is documented together
+                    with the routing rules for the CAN differential pair and the series termination of the SPI bus.
+                    Not ready to solder SMD right away? The same ESP32-S3-WROOM-1 module on a breakout adapter
+                    plugs into a breadboard and runs the same firmware. The board has been fabricated and
+                    assembled, and an ELM327 diagnostic adapter reads all 21 parameters and the fault codes
+                    from it while drawing its own power from pin 16.
+                </p>
+            </div>
+            <div class="table-scroll">
+                <table>
+                    <caption class="eyebrow" style="text-align:left;padding:14px 14px 4px" data-i18n="hw.caption">Key
+                        components
+                    </caption>
+                    <thead>
+                    <tr>
+                        <th data-i18n="hw.th1">Component</th>
+                        <th data-i18n="hw.th2">Role</th>
+                        <th data-i18n="hw.th3">≈ EUR</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    <tr>
+                        <td>ESP32-S3-WROOM-1</td>
+                        <td data-i18n="hw.r1">Microcontroller, 240 MHz, 8 MB flash</td>
+                        <td>4.90</td>
+                    </tr>
+                    <tr>
+                        <td>MCP2515 + SN65HVD230</td>
+                        <td data-i18n="hw.r2">CAN controller and transceiver</td>
+                        <td>2.22</td>
+                    </tr>
+                    <tr>
+                        <td>Waveshare 18366 (ILI9341 2.4")</td>
+                        <td data-i18n="hw.r3">TFT screen (no touch)</td>
+                        <td>9.18</td>
+                    </tr>
+                    <tr>
+                        <td data-i18n="hw.c4">5-way switch + incremental encoder</td>
+                        <td data-i18n="hw.r4">physical interface controls (Alps, BI Technologies)</td>
+                        <td>2.20</td>
+                    </tr>
+                    <tr>
+                        <td>J1962F</td>
+                        <td data-i18n="hw.r5">OBD-II connector</td>
+                        <td>3.98</td>
+                    </tr>
+                    <tr>
+                        <td>S25FL128L / W25Q128</td>
+                        <td data-i18n="hw.r6">16 MB flash - internal scenario storage (FAT)</td>
+                        <td>2.32</td>
+                    </tr>
+                    <tr>
+                        <td>USB-A + TS3USB221 + SY6280</td>
+                        <td data-i18n="hw.r7">USB stick / PC link (mux + protection)</td>
+                        <td>1.18</td>
+                    </tr>
+                    <tr>
+                        <td>PCB 130 × 115 mm</td>
+                        <td data-i18n="hw.r8">Two-layer, JLCPCB / PCBWay / Aisler</td>
+                        <td>8.00</td>
+                    </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="hero-cta" style="margin-top:28px">
+            <a class="btn ghost" href="OBD2-board-v0.7/index.html" target="_blank" rel="noopener">
+                <span data-i18n="hw.pcbLink">Open the interactive board view</span>
+            </a>
+        </div>
+        <p class="aside-note" data-i18n="hw.pcbNote">Every track, via, pad and footprint, drawn straight from the KiCad
+            file: 892 track segments, 73 vias and 103 footprints. Hover any part for its description, toggle the two
+            copper layers, and switch the page between English and Croatian.</p>
+    </div>
+</section>
+
+<!-- ============ BUILD ============ -->
+<section id="build">
+    <div class="wrap">
+        <span class="eyebrow">DIY</span>
+        <h2 data-i18n="build.h2">Build it yourself</h2>
+        <p class="lead-p" data-i18n="build.lead">Every component is available to an individual on the open market
+            (Mouser, TME, LCSC, AliExpress…). Detailed instructions, BOM tables and the pinout are on the wiki.</p>
+        <div class="steps">
+            <div class="step">
+                <div><b data-i18n="build.1b">Pick a variant</b>
+                    <p data-i18n="build.1p">Fastest start: ESP32-DevKitC + off-the-shelf modules (≈ 30-40 €, minimal
+                        soldering). For a compact final device, order the dedicated board from the supplied Gerber files
+                        (five pieces ≈ 27 €).</p></div>
+            </div>
+            <div class="step">
+                <div><b data-i18n="build.2b">Get the components</b>
+                    <p data-i18n="build.2p">The full list with suppliers and prices is in the repository (<code>/hardware/bom</code>)
+                        and on the wiki page <em>Building the device</em>.</p></div>
+            </div>
+            <div class="step">
+                <div><b data-i18n="build.3b">Assemble and wire it</b>
+                    <p data-i18n="build.3p">The pinout is documented down to the last resistor - including traps such as
+                        the ESP32-S3 strapping pins, the layout of analogue inputs on ADC1 (GPIO1-GPIO10) and the
+                        separate interrupt line for CAN.</p></div>
+            </div>
+            <div class="step">
+                <div><b data-i18n="build.4b">Flash the firmware</b>
+                    <p data-i18n="build.4p">Clone the repository and run <code>pio run -t upload</code> in PlatformIO -
+                        the transfer goes over the USB-C port (USB-Serial-JTAG), and the BOOT and RESET service buttons
+                        are there for entering download mode by hand. The unit tests (<code>pio test -e native</code>)
+                        also run without any hardware, on your computer.</p></div>
+            </div>
+            <div class="step">
+                <div><b data-i18n="build.5b">Connect a tool</b>
+                    <p data-i18n="build.5p">Connect any OBD-II scanner or ELM327 adapter to the J1962 connector with an
+                        extension cable - the simulator presents itself as ECU 0x7E8 and is ready for requests.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ============ CONTRIBUTE ============ -->
+<section id="contribute">
+    <div class="wrap">
+        <span class="eyebrow" data-i18n="contrib.eyebrow">Community</span>
+        <h2 data-i18n="contrib.h2">Join the development</h2>
+        <div class="grid">
+            <div class="card"><span class="k">ROADMAP</span>
+                <h3 data-i18n="contrib.1h">Wish list</h3>
+                <p data-i18n="contrib.1p">The UDS protocol (ISO 14229), simulation of multiple ECUs (0x7E8-0x7EF),
+                    remote scenario control over Wi-Fi, modes 0x06 and 0x0A, CAN FD, and recording and replaying real
+                    vehicle traffic.</p></div>
+            <div class="card"><span class="k" data-i18n="contrib.2k">HOW TO START</span>
+                <h3 data-i18n="contrib.2h">Issue → branch → PR</h3>
+                <p data-i18n="contrib.2p">Report a bug or propose a feature through Issues, and for code, fork the
+                    repository, pass the unit tests and send a pull request. Code is written in English (C++17),
+                    documentation in Croatian.</p></div>
+            <div class="card"><span class="k" data-i18n="contrib.3k">TESTING</span>
+                <h3 data-i18n="contrib.3h">Test it with your own tool</h3>
+                <p data-i18n="contrib.3p">Compatibility reports for diagnostic tools we have not tried are extremely
+                    valuable - the tool model and a short traffic capture are enough. Instructions are on the wiki page
+                    <em>Contributing to the project</em>.</p></div>
+        </div>
+        <div class="hero-cta" style="margin-top:34px">
+            <a class="btn primary" href="https://github.com/FilipRaic/obd2-simulator/wiki/Contributing" rel="noopener"
+               data-i18n="contrib.cta1">Contribution guide</a>
+            <a class="btn ghost" href="https://github.com/FilipRaic/obd2-simulator/issues" rel="noopener"
+               data-i18n="contrib.cta2">Open Issues</a>
+        </div>
+    </div>
+</section>
+
+<footer>
+    <div class="wrap">
+        <span data-i18n="foot.1">OBD-II Simulator - an open-source project</span>
+        <span data-i18n="foot.2">Code and schematics under the <a
+                href="https://github.com/FilipRaic/obd2-simulator/blob/master/LICENSE" rel="noopener">MIT licence</a></span>
+    </div>
+</footer>
+
+<script>
+    (function () {
+        "use strict";
+
+        /* ============================================================
+           i18n - the markup is English (works with JS disabled).
+           Croatian strings live in the HR dictionary below and are
+           swapped in by key. The English originals are snapshotted
+           from the DOM on load, so nothing is duplicated in markup.
+           ============================================================ */
+
+        const HR = {
+            "html.lang": "hr",
+            "html.title": "OBD-II Simulator - ECU simulator otvorenog izvora",
+            "html.desc": "OBD-II simulatorska pločica otvorenog izvora: emulira ECU vozila prema SAE J1979 i ISO 15031-5 putem CAN sabirnice. ESP32-S3, 40 do 60 EUR, potpuno otvorene sheme i kod.",
+            "nav.aria": "Glavna navigacija",
+
+            "nav.demo": "Demo",
+            "nav.features": "Značajke",
+            "nav.hardware": "Hardver",
+            "nav.build": "Napravi ga sam",
+            "nav.contribute": "Doprinos",
+
+            "hero.eyebrow": "Otvoreni hardver · SAE J1979 · ISO 15031-5",
+            "hero.h1": "ECU simulator<br><span class=\"thin\">na vašem stolu</span>",
+            "hero.lede": "OBD-II simulatorska pločica otvorenog izvora koja se prema dijagnostičkom alatu ponaša kao stvarno vozilo: 21 simulirani parametar, banka dijagnostičkih grešaka s MIL signalizacijom i CAN komunikacija prema ISO 15765-4 - sve od komponenti koje svatko može kupiti, za 40 do 60 EUR, ovisno o tome gdje se dijelovi nabavljaju.",
+            "hero.cta1": "Repozitorij na GitHubu",
+            "hero.cta2": "Wiki i upute",
+            "hero.cta3": "Kako ga napraviti",
+
+            "stat.1": "vrijeme odziva (granica norme: 50 ms)",
+            "stat.2": "PID parametara moda 0x01",
+            "stat.3": "ukupni trošak komponenti",
+            "stat.4": "napajanje standardnim punjačem",
+
+            "demo.eyebrow": "Interaktivni prikaz",
+            "demo.h2": "Pošaljite dijagnostički upit",
+            "demo.lead": "Ovako simulator odgovara na stvarnoj CAN sabirnici. Odaberite parametar - okviri niže izgrađeni su istim pravilima koje koristi firmware: zahtjev na identifikator <code>0x7DF</code>, odgovor s <code>0x7E8</code>, kodiranje inverznim formulama norme ISO 15031-5 i popuna <code>55</code> prema ISO 15765-4.",
+            "demo.label": "Parametar (mod 0x01)",
+            "demo.mil": "Aktiviraj grešku P0301 (MIL)",
+            "demo.send": "Pošalji upit",
+            "demo.tagReq": "Zahtjev - dijagnostički alat → simulator",
+            "demo.tagResp": "Odgovor - simulator (ECU 0x7E8) → alat",
+            "demo.note": "Vrijednosti generira isti simulacijski model kao na uređaju (profil praznog hoda, osvježavanje 10 Hz).",
+            "demo.formulaPrefix": "Formula: ",
+            "demo.rawBytes": "sirovi bajtovi: ",
+            "demo.uiLink": "Otvori maketu sučelja",
+            "demo.uiNote": "Maketa crta iste ekrane koje uređaj prikazuje na svom TFT-u i kroz njih se može hodati tipkovnicom. Ima vlastiti EN/HR prekidač, ali tekst na ekranima ostaje engleski u oba jezika, jednako kao na uređaju.",
+
+            "feat.eyebrow": "Što uređaj radi",
+            "feat.h2": "Značajke",
+            "feat.1k": "MOD 0x01 / 0x02",
+            "feat.1h": "Očitanja u stvarnom vremenu",
+            "feat.1p": "21 parametar s ispravnim formulama pretvorbe - brzina, okretaji, temperature, tlakovi, lambda sonda, razina goriva - uz bit-maske podržanosti (PID 0x00/0x20/0x40) i freeze frame vrijednosti iz trenutka nastanka greške.",
+            "feat.2k": "MOD 0x03 / 0x04 / 0x07",
+            "feat.2h": "Banka grešaka i MIL",
+            "feat.2p": "Do 20 istovremeno aktivnih DTC kodova u stanjima pending i confirmed, paljenje i gašenje „check engine\" žaruljice te brisanje grešaka s alata - idealno za ispitivanje rukovanja kvarovima bez razbijanja pravog auta.",
+            "feat.3k": "MOD 0x09 · ISO-TP",
+            "feat.3h": "Identifikacija vozila",
+            "feat.3p": "VIN oznaka vozila (17 znakova) prenosi se višestrukim okvirima transportnog protokola ISO 15765-2 (FF → FC → CF), uključujući ispravno rukovanje flow-control okvirima i cikličkim rednim brojevima.",
+            "feat.4k": "SUČELJE",
+            "feat.4h": "Ekran i fizičke kontrole",
+            "feat.4p": "TFT 2,4\" uz stupac fizičkih kontrola: inkrementalni enkoder za zadavanje vrijednosti, 5-smjerni prekidač za navigaciju te tipkala CONFIRM, CLEAR i RETURN. Scenariji u JSON formatu žive u internom flashu - preko USB-C uređaj se računalu prikaže kao USB disk, a običnim USB stickom scenariji se uvoze i izvoze.",
+            "feat.5k": "SIMULACIJA",
+            "feat.5h": "Tri profila rada",
+            "feat.5p": "Ručno zadavanje vrijednosti, prazni hod sa zagrijavanjem motora prema radnoj temperaturi te vozni profil u kojem su brzina, okretaji, opterećenje i protok zraka fizikalno povezani.",
+            "feat.6k": "OTVORENI IZVOR",
+            "feat.6h": "Sve je javno",
+            "feat.6p": "Sheme, PCB datoteke, potpuni izvorni kod u C++ (C++17) i 98 jediničnih testova - sve pod MIT licencom. Isti se firmware, bez izmjena, prevodi za razvojnu i za konačnu izvedbu.",
+
+            "hw.eyebrow": "Ispod haube",
+            "hw.h2": "Hardver",
+            "hw.p1": "Srce uređaja je modul <strong>ESP32-S3-WROOM-1</strong> (dvojezgreni 240 MHz, 8 MB flash, Wi-Fi/BLE). CAN lanac čine kontroler <strong>MCP2515</strong> i primopredajnik <strong>SN65HVD230</strong> s ESD zaštitom do standardnog <strong>J1962</strong> konektora. Napajanje: USB-C → CH224K (PD sink, traži 12 V) → TPS562201 na 3,3 V, uz 12 V na pinu 16 kojim se napaja dijagnostički alat.",
+            "hw.p2": "Namjenska dvoslojna pločica dimenzija <strong>130 × 115 mm</strong> dokumentirana je s pravilima usmjeravanja CAN diferencijalnog para i serijskom terminacijom SPI sabirnice. Ne želite odmah lemiti SMD? Isti se modul ESP32-S3-WROOM-1 na adapterskoj pločici ubada u breadboard i pokreće isti firmware. Pločica je izrađena i sastavljena, a dijagnostički adapter ELM327 s nje čita svih 21 parametar i greške, dok se pritom napaja s pina 16.",
+            "hw.caption": "Ključne komponente",
+            "hw.pcbLink": "Otvori interaktivni prikaz pločice",
+            "hw.pcbNote": "Svaki vod, rupica, pad i otisak, nacrtani izravno iz KiCad datoteke: 892 segmenta vodova, 73 rupice i 103 otiska. Prelaskom miša preko dijela dobiva se njegov opis, slojevi bakra se mogu gasiti i paliti, a stranica se prebacuje između engleskog i hrvatskog.",
+            "hw.th1": "Komponenta",
+            "hw.th2": "Uloga",
+            "hw.th3": "≈ EUR",
+            "hw.c4": "5-smjerni prekidač + inkrementalni enkoder",
+            "hw.r1": "Mikroupravljač, 240 MHz, 8 MB flash",
+            "hw.r2": "CAN kontroler i primopredajnik",
+            "hw.r3": "TFT ekran (bez dodira)",
+            "hw.r4": "fizičke kontrole sučelja (Alps, BI Technologies)",
+            "hw.r5": "OBD-II konektor",
+            "hw.r6": "16 MB flash - interna pohrana scenarija (FAT)",
+            "hw.r7": "USB stick / PC veza (mux + zaštita)",
+            "hw.r8": "Dvoslojna, JLCPCB / PCBWay / Aisler",
+
+            "build.h2": "Napravi ga sam",
+            "build.lead": "Sve komponente dostupne su pojedincu u slobodnoj prodaji (Mouser, TME, LCSC, AliExpress…). Detaljne upute, BOM tablice i pinout nalaze se na wikiju.",
+            "build.1b": "Odaberite varijantu",
+            "build.1p": "Najbrži početak: ESP32-DevKitC + gotovi moduli (≈ 30-40 €, minimalno lemljenja). Za kompaktan konačni uređaj naručite namjensku pločicu iz priloženih Gerber datoteka (pet komada ≈ 27 €).",
+            "build.2b": "Nabavite komponente",
+            "build.2p": "Potpuni popis s dobavljačima i cijenama nalazi se u repozitoriju (<code>/hardware/bom</code>) i na wiki stranici <em>Izrada uređaja</em>.",
+            "build.3b": "Sastavite i spojite",
+            "build.3p": "Pinout je dokumentiran do zadnjeg otpornika - uključujući zamke poput strapping pinova ESP32-S3, rasporeda analognih ulaza na ADC1 (GPIO1-GPIO10) i zasebne prekidne linije za CAN.",
+            "build.4b": "Prenesite firmware",
+            "build.4p": "Klonirajte repozitorij i pokrenite <code>pio run -t upload</code> u PlatformIO-u - prijenos ide preko USB-C priključka (USB-Serial-JTAG), a za ručni ulazak u download način rada služe servisna tipkala BOOT i RESET. Jedinični testovi (<code>pio test -e native</code>) rade i bez sklopovlja, na vašem računalu.",
+            "build.5b": "Spojite alat",
+            "build.5p": "Bilo koji OBD-II skener ili ELM327 adapter spojite produžnim kabelom na J1962 konektor - simulator se predstavlja kao ECU 0x7E8 i spreman je za upite.",
+
+            "contrib.eyebrow": "Zajednica",
+            "contrib.h2": "Pridružite se razvoju",
+            "contrib.1h": "Popis želja",
+            "contrib.1p": "UDS protokol (ISO 14229), simulacija više ECU jedinica (0x7E8-0x7EF), daljinsko upravljanje scenarijima preko Wi-Fi veze, modovi 0x06 i 0x0A, CAN FD te snimanje i reprodukcija prometa stvarnog vozila.",
+            "contrib.2k": "KAKO POČETI",
+            "contrib.2h": "Issue → grana → PR",
+            "contrib.2p": "Prijavite grešku ili predložite funkcionalnost kroz Issues, a za kod forkajte repozitorij, prođite jedinične testove i pošaljite pull request. Kod se piše na engleskom (C++17), dokumentacija na hrvatskom.",
+            "contrib.3k": "ISPITIVANJA",
+            "contrib.3h": "Testirajte sa svojim alatom",
+            "contrib.3p": "Izvještaji o kompatibilnosti s dijagnostičkim alatima koje nismo isprobali izuzetno su vrijedni - dovoljan je model alata i kratka snimka prometa. Upute na wiki stranici <em>Doprinos projektu</em>.",
+            "contrib.cta1": "Upute za doprinos",
+            "contrib.cta2": "Otvorene teme (Issues)",
+
+            "foot.1": "OBD-II Simulator - projekt otvorenog izvora",
+            "foot.2": "Kod i sheme pod <a href=\"https://github.com/FilipRaic/obd2-simulator/blob/master/LICENSE\" rel=\"noopener\">MIT licencom</a>"
+        };
+
+        /* Strings that are not plain element content: attributes and
+           document-level metadata. English side is written out here. */
+        const EN_META = {
+            "html.lang": "en",
+            "html.title": "OBD-II Simulator - open-source ECU simulator",
+            "html.desc": "Open-source OBD-II simulator board: emulates a vehicle ECU per SAE J1979 and ISO 15031-5 over the CAN bus. ESP32-S3, EUR 40 to 60, fully open schematics and code.",
+            "nav.aria": "Main navigation",
+            "demo.formulaPrefix": "Formula: ",
+            "demo.rawBytes": "raw bytes: "
+        };
+
+        /* Snapshot the English element content straight from the markup. */
+        const EN = {};
+        const nodes = document.querySelectorAll("[data-i18n]");
+        nodes.forEach(function (el) {
+            EN[el.getAttribute("data-i18n")] = el.innerHTML;
+        });
+        Object.keys(EN_META).forEach(function (k) {
+            EN[k] = EN_META[k];
+        });
+
+        let lang = "en";
+        const dict = k => (lang === "hr" ? (HR[k] !== undefined ? HR[k] : EN[k]) : EN[k]);
+
+        /* ============================================================
+           PID table - encode: physical value -> raw bytes (inverse
+           ISO 15031-5 formulas), matching the firmware's obd module.
+           ============================================================ */
+        const PIDS = [
+            {
+                pid: 0x0C, en: "0x0C - Engine RPM", hr: "0x0C - Broj okretaja motora", unit: "rpm", unitHr: "o/min",
+                formula: "(256·A + B) / 4",
+                live: () => 800 + rnd(25),
+                enc: v => {
+                    const r = Math.round(v * 4);
+                    return [(r >> 8) & 0xFF, r & 0xFF];
+                },
+                dec: b => ((b[0] << 8) + b[1]) / 4, fmt: v => v.toFixed(0)
+            },
+            {
+                pid: 0x0D, en: "0x0D - Vehicle speed", hr: "0x0D - Brzina vozila", unit: "km/h",
+                formula: "A",
+                live: () => 0, enc: v => [Math.round(v) & 0xFF], dec: b => b[0], fmt: v => v.toFixed(0)
+            },
+            {
+                pid: 0x05, en: "0x05 - Coolant temperature", hr: "0x05 - Temp. rashladne tekućine", unit: "°C",
+                formula: "A - 40",
+                live: () => warmup(), enc: v => [Math.round(v) + 40], dec: b => b[0] - 40, fmt: v => v.toFixed(0)
+            },
+            {
+                pid: 0x0F, en: "0x0F - Intake air temperature", hr: "0x0F - Temp. usisnog zraka", unit: "°C",
+                formula: "A - 40",
+                live: () => 35 + rnd(.3), enc: v => [Math.round(v) + 40], dec: b => b[0] - 40, fmt: v => v.toFixed(0)
+            },
+            {
+                pid: 0x11,
+                en: "0x11 - Throttle position",
+                hr: "0x11 - Položaj zaklopke gasa",
+                unit: "%",
+                formula: "A · 100 / 255",
+                live: () => 15 + rnd(.5),
+                enc: v => [Math.round(v * 255 / 100)],
+                dec: b => b[0] * 100 / 255,
+                fmt: v => v.toFixed(1)
+            },
+            {
+                pid: 0x10, en: "0x10 - Mass air flow (MAF)", hr: "0x10 - Maseni protok zraka (MAF)", unit: "g/s",
+                formula: "(256·A + B) / 100",
+                live: () => 3.1 + rnd(.1),
+                enc: v => {
+                    const r = Math.round(v * 100);
+                    return [(r >> 8) & 0xFF, r & 0xFF];
+                },
+                dec: b => ((b[0] << 8) + b[1]) / 100, fmt: v => v.toFixed(2)
+            },
+            {
+                pid: 0x14, en: "0x14 - O2 sensor voltage (B1S1)", hr: "0x14 - Napon lambda sonde (B1S1)", unit: "V",
+                formula: "A / 200 (B = trim, unused: FF)", formulaHr: "A / 200 (B = trim, ne koristi se: FF)",
+                live: () => 0.7 + rnd(.02),
+                enc: v => [Math.round(v * 200) & 0xFF, 0xFF], dec: b => b[0] / 200, fmt: v => v.toFixed(3)
+            },
+            {
+                pid: 0x2F,
+                en: "0x2F - Fuel level",
+                hr: "0x2F - Razina goriva",
+                unit: "%",
+                formula: "A · 100 / 255",
+                live: () => 75,
+                enc: v => [Math.round(v * 255 / 100)],
+                dec: b => b[0] * 100 / 255,
+                fmt: v => v.toFixed(0)
+            },
+            {
+                pid: 0x42, en: "0x42 - Control module voltage", hr: "0x42 - Napon upravljačkog modula", unit: "V",
+                formula: "(256·A + B) / 1000",
+                live: () => 13.8 + rnd(.05),
+                enc: v => {
+                    const r = Math.round(v * 1000);
+                    return [(r >> 8) & 0xFF, r & 0xFF];
+                },
+                dec: b => ((b[0] << 8) + b[1]) / 1000, fmt: v => v.toFixed(2)
+            },
+            {
+                pid: 0x01, en: "0x01 - MIL status and fault count", hr: "0x01 - Status MIL i broj grešaka", unit: "",
+                formula: "bit 7 of A = MIL; A & 0x7F = DTC count",
+                formulaHr: "bit 7 od A = MIL; A & 0x7F = broj DTC",
+                live: () => 0, enc: () => {
+                    const a = (milOn ? 0x80 : 0) | (milOn ? 1 : 0);
+                    return [a, 0x00, 0x00, 0x00];
+                },
+                dec: b => b[0], fmt: () => milOn ? "MIL ON · 1 DTC (P0301)" : "MIL OFF · 0 DTC", statusPid: true
+            }
+        ];
+
+        const t0 = Date.now();
+        const t = () => Date.now() - t0;
+        const rnd = a => (Math.random() * 2 - 1) * a;
+        const warmup = () => {
+            const target = 90, start = 21, tau = 180;
+            return target - (target - start) * Math.exp(-(t() / 1000) / tau);
+        };
+        const hex = n => n.toString(16).toUpperCase().padStart(2, "0");
+        let milOn = false;
+
+        const sel = document.getElementById("pidSel"),
+            reqEl = document.getElementById("reqBytes"),
+            respEl = document.getElementById("respBytes"),
+            valEl = document.getElementById("decVal"),
+            unitEl = document.getElementById("decUnit"),
+            forEl = document.getElementById("decFormula"),
+            milBtn = document.getElementById("milToggle"),
+            heroMil = document.getElementById("heroMil"),
+            mainNav = document.getElementById("mainNav"),
+            metaDesc = document.querySelector('meta[name="description"]');
+
+        function fillSelect() {
+            const keep = sel.value;
+            sel.innerHTML = "";
+            PIDS.forEach((p, i) => {
+                const o = document.createElement("option");
+                o.value = i;
+                o.textContent = (lang === "hr" ? p.hr : p.en);
+                sel.appendChild(o);
+            });
+            if (keep !== "") sel.value = keep;
+        }
+
+        function frameHTML(id, data) {
+            const padCount = 8 - data.length;
+            let s = '<span class="id">0x' + id + '</span>&nbsp;&nbsp;[' + data.map(hex).join(" ");
+            for (let i = 0; i < padCount; i++) s += ' <span class="pad">55</span>';
+            return s + "]";
+        }
+
+        function send() {
+            const p = PIDS[sel.value | 0];
+            /* Request: 0x7DF [02 01 PID] + 0x55 padding (ISO 15765-4) */
+            reqEl.innerHTML = frameHTML("7DF", [0x02, 0x01, p.pid]);
+            /* Response: 0x7E8 [len 41 PID A B ...] */
+            const data = p.enc(p.live());
+            respEl.innerHTML = frameHTML("7E8", [data.length + 2, 0x41, p.pid, ...data]);
+            const phys = p.dec(data);
+            valEl.textContent = p.fmt(phys);
+            valEl.classList.toggle("mil-on", !!p.statusPid && milOn);
+            unitEl.textContent = (lang === "hr" && p.unitHr) ? p.unitHr : p.unit;
+            const formula = (lang === "hr" && p.formulaHr) ? p.formulaHr : p.formula;
+            forEl.textContent = dict("demo.formulaPrefix") + formula + "   ·   " + dict("demo.rawBytes") + data.map(hex).join(" ");
+        }
+
+        function applyLang(next) {
+            lang = (next === "hr") ? "hr" : "en";
+            nodes.forEach(function (el) {
+                const k = el.getAttribute("data-i18n");
+                const v = dict(k);
+                if (v !== undefined) el.innerHTML = v;
+            });
+            document.documentElement.setAttribute("lang", dict("html.lang"));
+            document.title = dict("html.title");
+            if (metaDesc) metaDesc.setAttribute("content", dict("html.desc"));
+            if (mainNav) mainNav.setAttribute("aria-label", dict("nav.aria"));
+            document.querySelectorAll("#langSwitch button").forEach(function (b) {
+                b.setAttribute("aria-pressed", String(b.getAttribute("data-lang") === lang));
+            });
+            fillSelect();
+            send();
+        }
+
+        document.querySelectorAll("#langSwitch button").forEach(function (b) {
+            b.addEventListener("click", function () {
+                applyLang(b.getAttribute("data-lang"));
+            });
+        });
+
+        document.getElementById("sendBtn").addEventListener("click", send);
+        sel.addEventListener("change", send);
+
+        milBtn.addEventListener("click", () => {
+            milOn = !milOn;
+            milBtn.classList.toggle("on", milOn);
+            milBtn.setAttribute("aria-pressed", String(milOn));
+            heroMil.classList.toggle("on", milOn);
+            if (PIDS[sel.value | 0].statusPid) send();
+        });
+
+        /* English is the default, always. The choice is deliberately NOT
+           remembered: every load starts in English and Croatian is one click
+           away. A stored preference would make the effective default whatever
+           was picked last, which is not what this project shows first. */
+
+        /* Hero MIL lamp: on by default as brand mark, syncs with the toggle after first use */
+        applyLang("en");
+    })();
+</script>
+</body>
+</html>

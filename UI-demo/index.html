@@ -1,0 +1,613 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OBD-II Simulator - interface mock-up (v0.7)</title>
+<style>
+/* ── Paleta je uzeta s same pločice ────────────────────────────────────────
+   Crna maska, bijeli sitotisak, zlatni ENIG padovi. Boje ekrana se ne pišu
+   ovdje nego se računaju iz RGB565 konstanti u firmware/src/ui/screen.h,
+   pa demo ne može odlutati od stvarnog uređaja.                            */
+:root{
+  --mask:#0e100f; --mask-hi:#161917; --silk:#e9e7e1; --silk-dim:#8d918c;
+  --enig:#c9a227; --enig-dim:#7a6418; --edge:#2a2e2b;
+  --px:2;                              /* uvećanje ekrana 320x240 */
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{
+  background:
+    radial-gradient(120% 90% at 50% -10%, #1a1e1b 0%, var(--mask) 55%),
+    var(--mask);
+  color:var(--silk);
+  font:15px/1.55 ui-sans-serif,system-ui,"Segoe UI",Roboto,Arial,sans-serif;
+  padding:32px 20px 56px;
+}
+.wrap{max-width:1180px;margin:0 auto}
+
+/* sitotisak: velika slova, razmaknuto, bez kvačica - kao na ploči */
+.silk{
+  font:600 11px/1 ui-monospace,"Cascadia Mono",Consolas,monospace;
+  letter-spacing:.18em; text-transform:uppercase; color:var(--silk-dim);
+}
+
+header{display:flex;flex-wrap:wrap;gap:18px;align-items:baseline;
+  border-bottom:1px solid var(--edge);padding-bottom:14px;margin-bottom:26px}
+h1{font:600 22px/1.2 ui-sans-serif,system-ui,sans-serif;margin:0;letter-spacing:-.01em}
+header .sub{color:var(--silk-dim);font-size:13px;margin-left:auto;text-align:right}
+
+/* Jezicni prekidac. Mijenja SAMO tekst oko makete, nikad sadrzaj ekrana. */
+.lang{display:flex;flex:none;border:1px solid var(--edge);border-radius:4px;overflow:hidden;align-self:center}
+.lang button{
+  cursor:pointer;background:none;border:0;color:var(--silk-dim);
+  font:600 11px/1 ui-monospace,"Cascadia Mono",Consolas,monospace;
+  letter-spacing:.14em;padding:7px 11px;transition:background .15s,color .15s;
+}
+.lang button + button{border-left:1px solid var(--edge)}
+.lang button:hover{color:var(--silk)}
+.lang button[aria-pressed="true"]{background:rgba(201,162,39,.14);color:var(--enig)}
+
+.board{display:grid;grid-template-columns:minmax(0,1fr) 210px;gap:34px;align-items:start}
+
+/* ── Ekran ─────────────────────────────────────────────────────────────── */
+.bezel{
+  background:var(--mask-hi);border:1px solid var(--edge);border-radius:6px;
+  padding:14px;width:max-content;max-width:100%;
+  box-shadow:0 1px 0 #ffffff0d inset;
+}
+.tftbox{width:calc(320px*var(--px));height:calc(240px*var(--px));overflow:hidden}
+.tft{width:320px;height:240px;transform:scale(var(--px));transform-origin:top left;
+  position:relative;font:13px/1 ui-sans-serif,system-ui,Arial,sans-serif;
+  -webkit-font-smoothing:none}
+.hdr{height:28px;display:flex;align-items:center;padding:0 6px;font-weight:600;font-size:13px}
+.ftr{position:absolute;left:0;right:0;bottom:0;height:22px;display:flex;align-items:center;white-space:pre;
+  padding:0 6px;font-size:11px}
+.rows{position:absolute;left:0;right:0;top:28px;bottom:22px}
+.row{height:22px;display:flex;align-items:center;padding:0 6px;font-size:13px;gap:6px}
+.row .val{margin-left:auto;font-variant-numeric:tabular-nums}
+.row .badge{margin-left:auto;font-size:11px}
+
+.caption{margin-top:10px;font-size:12px;color:var(--silk-dim);max-width:calc(320px*var(--px))}
+
+/* ── Stupac upravljačkih elemenata ─────────────────────────────────────── */
+.column{position:relative;border-left:1px dashed var(--edge);padding-left:20px}
+.column .axis{position:absolute;left:-1px;top:0;bottom:0;width:1px}
+.ctl{margin-bottom:var(--gap,18px)}
+.ctl .silk{display:block;margin-bottom:6px}
+.mm{color:var(--enig-dim);font-weight:400;letter-spacing:.08em}
+
+.pad{
+  background:#14171501;border:1px solid var(--edge);border-radius:4px;
+  padding:12px;background:#121514;
+}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
+button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--enig);outline-offset:2px}
+
+/* tipkala */
+.key{
+  width:100%;background:#171a18;border:1px solid var(--edge);border-radius:3px;
+  padding:9px 10px;text-align:left;display:flex;align-items:center;gap:8px;
+  transition:background .09s,border-color .09s;
+}
+.key:hover{border-color:var(--enig-dim)}
+.key.hit{background:var(--enig);color:#0e100f;border-color:var(--enig)}
+.key b{font:600 12px/1 ui-monospace,Consolas,monospace;letter-spacing:.1em}
+.key span{font-size:11px;color:var(--silk-dim);margin-left:auto}
+.key.hit span{color:#0e100f99}
+
+/* palica */
+.joy{display:grid;grid-template-columns:repeat(3,1fr);gap:4px;width:132px}
+.joy button{background:#171a18;border:1px solid var(--edge);border-radius:3px;
+  aspect-ratio:1;display:grid;place-items:center;font-size:13px;color:var(--silk-dim);
+  transition:background .09s}
+.joy button:hover{border-color:var(--enig-dim);color:var(--silk)}
+.joy button.hit{background:var(--enig);color:#0e100f}
+.joy .mid{font:600 10px/1 ui-monospace,Consolas,monospace;letter-spacing:.06em}
+.joy .sp{visibility:hidden}
+
+/* enkoder */
+.knob{
+  width:96px;height:96px;border-radius:50%;margin:2px auto 8px;position:relative;
+  background:radial-gradient(circle at 50% 38%,#2b2f2c,#141715 62%);
+  border:1px solid var(--edge);cursor:grab;touch-action:none;
+  display:grid;place-items:center;
+}
+.knob:active{cursor:grabbing}
+.knob::after{content:"";position:absolute;inset:9px;border-radius:50%;
+  background:repeating-conic-gradient(var(--edge) 0 3deg,transparent 3deg 9deg)}
+.knob i{position:absolute;left:50%;top:8px;width:2px;height:22px;margin-left:-1px;
+  background:var(--enig);border-radius:1px;transform-origin:50% 40px}
+.knob b{position:relative;z-index:1;font:600 11px/1 ui-monospace,Consolas,monospace;
+  letter-spacing:.1em;color:var(--silk-dim)}
+
+/* ── Dnevnik događaja ──────────────────────────────────────────────────── */
+.log{margin-top:30px;border-top:1px solid var(--edge);padding-top:16px}
+.log h2{font:600 13px/1 ui-sans-serif,sans-serif;margin:0 0 10px;letter-spacing:.01em}
+.log ol{list-style:none;margin:0;padding:0;display:flex;flex-direction:column-reverse;
+  max-height:150px;overflow:auto;font:12px/1.7 ui-monospace,Consolas,monospace}
+.log li{display:flex;gap:14px;border-bottom:1px solid #1c201e;padding:1px 0}
+.log .k{color:var(--enig);min-width:110px}
+.log .d{color:var(--silk-dim)}
+.log .none{color:var(--silk-dim);font-style:italic}
+
+.legend{margin-top:26px;font-size:13px;color:var(--silk-dim);
+  display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:6px 26px}
+.legend b{color:var(--silk);font-weight:600}
+kbd{font:11px/1 ui-monospace,Consolas,monospace;border:1px solid var(--edge);
+  border-radius:3px;padding:2px 5px;color:var(--silk)}
+
+@media (max-width:820px){
+  :root{--px:1.5}
+  .board{grid-template-columns:1fr}
+  .column{border-left:0;border-top:1px dashed var(--edge);padding:20px 0 0}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <div>
+    <div class="silk">OBD-II SIMULATOR &nbsp;·&nbsp; V0.7</div>
+    <h1 data-i18n="h1">Interface mock-up</h1>
+  </div>
+  <div class="sub" data-i18n="sub">
+    2.4&Prime; ILI9341 display, 240 × 320 px, landscape <b>320 × 240</b><br>
+    Colours, row heights and text come from <code>firmware/src/ui/</code>
+  </div>
+  <div class="lang" id="langSwitch" role="group" aria-label="Language / Jezik">
+    <button type="button" data-lang="en" aria-pressed="true" lang="en">EN</button>
+    <button type="button" data-lang="hr" aria-pressed="false" lang="hr">HR</button>
+  </div>
+</header>
+
+<div class="board">
+
+  <div>
+    <div class="bezel">
+      <div class="tftbox"><div class="tft" id="tft">
+        <div class="hdr" id="hdr"></div>
+        <div class="rows" id="rows"></div>
+        <div class="ftr" id="ftr"></div>
+      </div></div>
+    </div>
+    <p class="caption" data-i18n="caption">
+      The screen is shown at its true 320 × 240 resolution, scaled two times.
+      Header height (28 px), row height (22 px) and the number of visible rows (8)
+      are taken from <code>screen.h</code>, so this is the real content density.
+    </p>
+  </div>
+
+  <div class="column">
+    <div class="ctl" style="--gap:22px">
+      <span class="silk">ENC1 <span class="mm">y 69 mm</span></span>
+      <div class="pad">
+        <div class="knob" id="knob" role="slider" tabindex="0" aria-label="Encoder ENC1" data-i18n-aria="knobAria"
+             aria-valuemin="0" aria-valuemax="100" aria-valuenow="50">
+          <i id="mark"></i><b>ENC</b>
+        </div>
+        <button class="key" id="encsw"><b>PUSH</b><span data-i18n="encsw">wired, no function</span></button>
+      </div>
+    </div>
+
+    <div class="ctl" style="--gap:22px">
+      <span class="silk">SW6 <span class="mm">y 51 mm</span></span>
+      <div class="pad">
+        <div class="joy">
+          <button class="sp"></button><button data-ev="Up">▲</button><button class="sp"></button>
+          <button data-ev="Left">◀</button><button class="mid" data-ev="Select">SEL</button><button data-ev="Right">▶</button>
+          <button class="sp"></button><button data-ev="Down">▼</button><button class="sp"></button>
+        </div>
+      </div>
+    </div>
+
+    <div class="ctl"><span class="silk">SW1 <span class="mm">y 41,25 mm</span></span>
+      <button class="key" data-ev="Ok"><b>CONFIRM</b><span data-i18n="k.ok">store</span></button></div>
+    <div class="ctl"><span class="silk">SW2 <span class="mm">y 29,25 mm</span></span>
+      <button class="key" data-ev="Clear"><b>CLEAR</b><span data-i18n="k.clear">revert</span></button></div>
+    <div class="ctl"><span class="silk">SW3 <span class="mm">y 17,25 mm</span></span>
+      <button class="key" data-ev="Back"><b>RETURN</b><span data-i18n="k.back">back</span></button></div>
+  </div>
+</div>
+
+<div class="log">
+  <h2 data-i18n="logTitle">Events the interface receives</h2>
+  <ol id="log"><li class="none" data-i18n="logEmpty">Move the joystick or turn the encoder.</li></ol>
+</div>
+
+<div class="legend">
+  <div data-i18n="lg1"><b>Joystick</b> up, down, left, right - navigation</div>
+  <div data-i18n="lg2"><b>Joystick, click</b> - select and start editing</div>
+  <div data-i18n="lg3"><b>Encoder</b> - changes the value, a faster turn gives a bigger step</div>
+  <div data-i18n="lg4"><b>Encoder button</b> - wired, the software does not use it</div>
+  <div data-i18n="lg5"><b>CONFIRM</b> stores, <b>CLEAR</b> reverts, <b>RETURN</b> goes back</div>
+  <div data-i18n="lg6"><b>Fault codes</b> - click selects a code, left and right change its state</div>
+  <div data-i18n="lg7"><b>CLEAR</b> with no code selected asks before erasing them all</div>
+  <div data-i18n="lg8">Keyboard: <kbd>↑</kbd><kbd>↓</kbd><kbd>←</kbd><kbd>→</kbd>
+       <kbd>Enter</kbd> select, <kbd>,</kbd><kbd>.</kbd> encoder,
+       <kbd>c</kbd> <kbd>x</kbd> <kbd>Esc</kbd></div>
+</div>
+
+</div>
+
+<script>
+"use strict";
+/* ── Boje: RGB565 iz screen.h -> CSS, da demo ne odluta od uređaja ─────── */
+const C565 = {BG:0x0000,HEADER_BG:0x10A2,TEXT:0xFFFF,DIM:0x8410,ACCENT:0x07FF,
+              SELECT_BG:0x0339,EDIT_BG:0x51E4,OK:0x07E0,WARN:0xFFE0,ALERT:0xF800};
+const C = {};
+for (const [k,v] of Object.entries(C565)) {
+  const r = (v>>11)&31, g = (v>>5)&63, b = v&31;
+  C[k] = `rgb(${Math.round(r*255/31)},${Math.round(g*255/63)},${Math.round(b*255/31)})`;
+}
+document.getElementById("tft").style.background = C.BG;
+
+/* ── Podaci: 21 parametar, izvučeni iz sensor_table.h i sensor_meta.h ──── */
+const SENSORS = [
+ {label:"Engine load",unit:"%",dec:1,val:25.0,min:0.0,max:100.0},
+ {label:"Coolant temp",unit:"C",dec:1,val:90.0,min:-40.0,max:215.0},
+ {label:"STFT bank 1",unit:"%",dec:1,val:0.0,min:-100.0,max:99.2},
+ {label:"LTFT bank 1",unit:"%",dec:1,val:-1.5,min:-100.0,max:99.2},
+ {label:"Fuel pressure",unit:"kPa",dec:0,val:350.0,min:0.0,max:765.0},
+ {label:"Intake MAP",unit:"kPa",dec:0,val:34.0,min:0.0,max:255.0},
+ {label:"Engine RPM",unit:"rpm",dec:0,val:800.0,min:0.0,max:16383.75},
+ {label:"Vehicle speed",unit:"km/h",dec:0,val:0.0,min:0.0,max:255.0},
+ {label:"Timing adv",unit:"deg",dec:1,val:10.0,min:-64.0,max:63.5},
+ {label:"Intake air",unit:"C",dec:1,val:35.0,min:-40.0,max:215.0},
+ {label:"MAF flow",unit:"g/s",dec:2,val:3.1,min:0.0,max:655.35},
+ {label:"Throttle",unit:"%",dec:1,val:15.0,min:0.0,max:100.0},
+ {label:"O2 B1 S1",unit:"V",dec:2,val:0.7,min:0.0,max:1.275},
+ {label:"OBD standard",unit:"",dec:0,val:6.0,min:0.0,max:255.0},
+ {label:"Run time",unit:"s",dec:0,val:0.0,min:0.0,max:65535.0},
+ {label:"Dist w/ MIL",unit:"km",dec:0,val:0.0,min:0.0,max:65535.0},
+ {label:"Fuel level",unit:"%",dec:0,val:75.0,min:0.0,max:100.0},
+ {label:"Baro press",unit:"kPa",dec:0,val:101.0,min:0.0,max:255.0},
+ {label:"Module volt",unit:"V",dec:2,val:13.8,min:0.0,max:65.535},
+ {label:"Ambient air",unit:"C",dec:1,val:22.0,min:-40.0,max:215.0},
+ {label:"Oil temp",unit:"C",dec:1,val:95.0,min:-40.0,max:215.0}
+];
+
+const DTC = [
+ ["P0100 MAF Sensor Circuit Malfunction","off"],
+ ["P0113 Intake Air Temp Sensor High Input","off"],
+ ["P0128 Coolant Temp Below Thermostat","pending"],
+ ["P0171 System Too Lean (Bank 1)","confirmed"],
+ ["P0301 Cylinder 1 Misfire Detected","confirmed"],
+ ["P0420 Catalyst Efficiency Below Threshold","confirmed"],
+ ["P0455 EVAP System Large Leak Detected","off"],
+ ["P0500 Vehicle Speed Sensor A","pending"],
+ ["U0100 Lost Communication With ECM/PCM","off"]
+];
+const PROFILES = ["Manual","Idle","Drive"];
+
+const STATES = ["off","pending","confirmed"];
+const st = {
+  screen:"home", sel:0, scroll:0, editing:false, editRow:-1, staged:0, orig:0,
+  profile:1, status:"", lastStepMs:0, prompt:false
+};
+const VISIBLE = 8;
+
+/* ── Iscrtavanje ───────────────────────────────────────────────────────── */
+const hdr = document.getElementById("hdr"), rowsEl = document.getElementById("rows"),
+      ftr = document.getElementById("ftr");
+
+function fmt(s, v){ return v.toFixed(s.dec) + (s.unit ? " " + s.unit : ""); }
+
+function paint(){
+  hdr.style.background = C.HEADER_BG; hdr.style.color = C.TEXT;
+  ftr.style.background = C.BG;        ftr.style.color = C.DIM;
+  rowsEl.textContent = "";
+  const add = (html, bg, fg) => {
+    const d = document.createElement("div");
+    d.className = "row"; d.innerHTML = html;
+    d.style.background = bg || C.BG; d.style.color = fg || C.TEXT;
+    rowsEl.appendChild(d); return d;
+  };
+
+  if (st.screen === "home") {
+    hdr.textContent = "OBD-II Simulator";
+    ftr.textContent = "JOY move/select to open";
+    const mil = DTC.some(d => d[1] === "confirmed");
+    const conf = DTC.filter(d => d[1]==="confirmed").length,
+          pend = DTC.filter(d => d[1]==="pending").length;
+    add("Scenario: factory");
+    add(`Profile: ${PROFILES[st.profile]}&nbsp;&nbsp;&nbsp;&nbsp;MIL: ${mil?"ON":"off"}`,
+        null, mil ? C.ALERT : C.TEXT);
+    add(`DTC: ${conf} confirmed, ${pend} pending`);
+    add("VIN: WVWZZZ1KZAW000001", null, C.DIM);
+    add("CAN OK&nbsp;&nbsp;RX 1284&nbsp;&nbsp;TX 1284&nbsp;&nbsp;&nbsp;FS OK", null, C.DIM);
+    ["Sensors","Fault codes (DTC)","Settings"].forEach((m,i) => {
+      const on = st.sel === i;
+      add(m, on ? C.SELECT_BG : C.BG, on ? C.TEXT : C.TEXT);
+    });
+  }
+
+  else if (st.screen === "sensors") {
+    hdr.textContent = "Sensors";
+    ftr.textContent = st.editing ? "ENC set   CONFIRM store   CLEAR revert"
+                                 : "JOY move/select   RETURN back";
+    for (let i = 0; i < VISIBLE; i++) {
+      const idx = st.scroll + i; if (idx >= SENSORS.length) break;
+      const s = SENSORS[idx];
+      const on = idx === st.sel, ed = st.editing && idx === st.editRow;
+      const v = ed ? st.staged : s.val;
+      add(`<span>${s.label}</span><span class="val">${fmt(s,v)}</span>`,
+          ed ? C.EDIT_BG : on ? C.SELECT_BG : C.BG,
+          ed ? C.ACCENT : C.TEXT);
+    }
+  }
+
+  else if (st.screen === "dtc") {
+    hdr.textContent = "Fault codes";
+    ftr.textContent = st.editing ? "JOY < >   CONFIRM store   CLEAR revert"
+                                 : "JOY move/select   CLEAR erase all   RETURN back";
+    for (let i = 0; i < VISIBLE; i++) {
+      const idx = st.scroll + i; if (idx >= DTC.length) break;
+      const label = DTC[idx][0], on = idx === st.sel, ed = st.editing && idx === st.editRow;
+      /* dok traje uređivanje redak pokazuje ODABRANO stanje, ne spremljeno */
+      const state = ed ? STATES[st.staged] : DTC[idx][1];
+      const badge = state === "confirmed" ? "CONF" : state === "pending" ? "PEND" : "-";
+      const col = state === "confirmed" ? C.ALERT : state === "pending" ? C.WARN : C.DIM;
+      add(`<span>${label.slice(0,34)}</span><span class="badge" style="color:${col}">${badge}</span>`,
+          ed ? C.EDIT_BG : on ? C.SELECT_BG : C.BG, C.TEXT);
+    }
+    if (st.prompt) {
+      const p = document.createElement("div");
+      p.style.cssText = `position:absolute;left:0;right:0;top:72px;height:66px;`
+        + `background:${C.EDIT_BG};border:1px solid ${C.WARN};display:grid;`
+        + `place-items:center;gap:8px;align-content:center;font-size:13px`;
+      p.innerHTML = `<div style="color:${C.TEXT}">Erase every fault code?</div>`
+                  + `<div style="color:${C.WARN}">CONFIRM erase&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;RETURN keep</div>`;
+      rowsEl.appendChild(p);
+    }
+  }
+
+  else if (st.screen === "settings") {
+    hdr.textContent = "Settings";
+    ftr.textContent = "JOY move/change/select   RETURN back";
+    const rows = [
+      `Profile:&nbsp;&nbsp;&lt; ${PROFILES[st.profile]} &gt;`,
+      "Save scenario as 'user'",
+      "Load scenario:&nbsp;&nbsp;&lt; user &gt;",
+      "Factory reset",
+      "USB stick: import scenarios",
+      "USB stick: export scenarios",
+      "PC link (USB-C disk) - restart"
+    ];
+    rows.forEach((t,i) => add(t, i === st.sel ? C.SELECT_BG : C.BG, C.TEXT));
+    add(st.status || "", null, C.WARN);
+  }
+}
+
+/* ── Model upravljanja - jednak firmwareu ──────────────────────────────── */
+function rowCount(){
+  return st.screen === "home" ? 3
+       : st.screen === "sensors" ? SENSORS.length
+       : st.screen === "dtc" ? DTC.length : 7;
+}
+function clampScroll(){
+  if (st.sel < st.scroll) st.scroll = st.sel;
+  if (st.sel >= st.scroll + VISIBLE) st.scroll = st.sel - VISIBLE + 1;
+}
+
+function event(kind, value){
+  log(kind, value);
+
+  /* Potvrdni izbornik je modalan: dok stoji, vrijede samo CONFIRM i CLEAR/RETURN. */
+  if (st.prompt) {
+    if (kind === "Ok") DTC.forEach(d => d[1] = "off");
+    if (kind === "Ok" || kind === "Clear" || kind === "Back") st.prompt = false;
+    paint(); return;
+  }
+  if (kind === "Up")   { if (!st.editing) { st.sel = Math.max(0, st.sel-1); clampScroll(); } }
+  if (kind === "Down") { if (!st.editing) { st.sel = Math.min(rowCount()-1, st.sel+1); clampScroll(); } }
+
+  if (kind === "Left" || kind === "Right") {
+    if (st.screen === "settings" && st.sel === 0)
+      st.profile = (st.profile + (kind==="Right"?1:PROFILES.length-1)) % PROFILES.length;
+    /* Greške: krajevi se ne omotavaju, pa se iz CONF ne skače odmah u prazno. */
+    if (st.screen === "dtc" && st.editing)
+      st.staged = Math.min(2, Math.max(0, st.staged + (kind === "Right" ? 1 : -1)));
+  }
+
+  if (kind === "Select") {
+    if (st.screen === "home") {
+      st.screen = ["sensors","dtc","settings"][st.sel];
+      st.sel = 0; st.scroll = 0; st.status = "";
+    } else if (st.screen === "sensors" && !st.editing) {
+      st.editing = true; st.editRow = st.sel;
+      st.orig = SENSORS[st.sel].val; st.staged = st.orig;
+    } else if (st.screen === "dtc" && !st.editing) {
+      st.editing = true; st.editRow = st.sel;
+      st.staged = STATES.indexOf(DTC[st.sel][1]);
+    } else if (st.screen === "settings") {
+      st.status = ["Profile changed","Saving as 'user'...","Loading 'user'...",
+                   "Factory scenario restored","Imported 2 scenarios","Exported 3 scenarios",
+                   "Rebooting into USB mode..."][st.sel];
+    }
+  }
+
+  if (kind === "Ok") {                        /* SW1 CONFIRM: samo sprema */
+    if (st.screen === "sensors" && st.editing) {
+      SENSORS[st.editRow].val = st.staged; st.editing = false; st.editRow = -1;
+    } else if (st.screen === "dtc" && st.editing) {
+      DTC[st.editRow][1] = STATES[st.staged]; st.editing = false; st.editRow = -1;
+    }
+  }
+  if (kind === "Clear") {
+    if (st.editing) { st.editing = false; st.editRow = -1; }
+    else if (st.screen === "dtc") st.prompt = true;   /* pita prije brisanja svega */
+  }
+  if (kind === "Back") {
+    if (st.editing) { st.editing = false; st.editRow = -1; }
+    else if (st.screen !== "home") {
+      const back = {sensors:0, dtc:1, settings:2}[st.screen];
+      st.screen = "home"; st.sel = back; st.scroll = 0;
+    }
+  }
+
+  if (kind === "DialStep" && st.screen === "sensors" && st.editing) {
+    const s = SENSORS[st.editRow];
+    st.staged = Math.min(s.max, Math.max(s.min, st.staged + value * (s.max - s.min)));
+  }
+  paint();
+}
+
+/* enkoder: pragovi i koraci su isti kao ENC_* konstante u input.cpp */
+function detent(dir){
+  const now = performance.now(), gap = now - st.lastStepMs; st.lastStepMs = now;
+  const step = gap < 50 ? 1/16 : gap < 150 ? 1/64 : 1/256;
+  event("DialStep", dir * step);
+}
+
+/* ── Dnevnik ───────────────────────────────────────────────────────────── */
+const logEl = document.getElementById("log");
+let logged = 0;
+function log(kind, value){
+  if (!logged++) logEl.textContent = "";
+  const li = document.createElement("li");
+  const d = value === undefined ? "" :
+    (value >= 0 ? "+" : "") + (value*100).toFixed(2) + " % raspona";
+  li.innerHTML = `<span class="k">InputKind::${kind}</span><span class="d">${d}</span>`;
+  logEl.appendChild(li);
+  while (logEl.children.length > 40) logEl.removeChild(logEl.firstChild);
+}
+
+/* ── Ulazi ─────────────────────────────────────────────────────────────── */
+function flash(el){ if(!el) return; el.classList.add("hit"); setTimeout(()=>el.classList.remove("hit"),90); }
+document.querySelectorAll("[data-ev]").forEach(b =>
+  b.addEventListener("click", () => { flash(b); event(b.dataset.ev); }));
+
+const encsw = document.getElementById("encsw");
+encsw.addEventListener("click", () => {
+  flash(encsw);
+  if (!logged++) logEl.textContent = "";
+  const li = document.createElement("li");
+  li.innerHTML = `<span class="k" style="color:var(--silk-dim)">ENC_SW</span>`
+               + `<span class="d">${dict("encswLog")}</span>`;
+  logEl.appendChild(li);
+});
+
+/* knob: povlačenje, kotačić miša i tipkovnica */
+const knob = document.getElementById("knob"), mark = document.getElementById("mark");
+let angle = 0, dragging = false, lastAngle = 0, acc = 0;
+function turn(deg){
+  angle += deg; mark.style.transform = `rotate(${angle}deg)`;
+  acc += deg;
+  while (Math.abs(acc) >= 18) {                 /* 20 uskoka po okretu */
+    const d = Math.sign(acc); acc -= d*18; detent(d);
+  }
+}
+function angleOf(e){
+  const r = knob.getBoundingClientRect();
+  return Math.atan2(e.clientY - (r.top + r.height/2), e.clientX - (r.left + r.width/2)) * 180/Math.PI;
+}
+knob.addEventListener("pointerdown", e => {
+  dragging = true; lastAngle = angleOf(e); knob.setPointerCapture(e.pointerId);
+});
+knob.addEventListener("pointermove", e => {
+  if (!dragging) return;
+  const a = angleOf(e); let d = a - lastAngle;
+  if (d > 180) d -= 360; if (d < -180) d += 360;
+  lastAngle = a; turn(d);
+});
+knob.addEventListener("pointerup", () => dragging = false);
+knob.addEventListener("wheel", e => { e.preventDefault(); turn(e.deltaY > 0 ? 18 : -18); }, {passive:false});
+knob.addEventListener("keydown", e => {
+  if (e.key === "ArrowRight" || e.key === "ArrowUp")   { e.preventDefault(); turn(18); }
+  if (e.key === "ArrowLeft"  || e.key === "ArrowDown") { e.preventDefault(); turn(-18); }
+});
+
+document.addEventListener("keydown", e => {
+  if (e.target === knob) return;
+  const map = {ArrowUp:"Up", ArrowDown:"Down", ArrowLeft:"Left", ArrowRight:"Right",
+               Enter:"Select", c:"Ok", C:"Ok", x:"Clear", X:"Clear", Escape:"Back"};
+  if (e.key === "," || e.key === ".") { e.preventDefault(); turn(e.key === "." ? 18 : -18); return; }
+  const k = map[e.key];
+  if (!k) return;
+  e.preventDefault();
+  flash(document.querySelector(`[data-ev="${k}"]`));
+  event(k);
+});
+
+/* ─────────────────────────────────────────────────────────────────────────
+   Jezik stranice.
+
+   VAZNO: prekidac mijenja iskljucivo tekst OKO makete. Sadrzaj ekrana
+   (#tft, dakle zaglavlje, retci i footer) crta se iz modela iznad, koji
+   doslovno ponavlja stringove firmwarea, i on ostaje na engleskom u oba
+   jezika. Uredjaj ne podrzava vise jezika, pa bi prijevod ekrana prikazivao
+   nesto sto na stvarnom uredjaju ne postoji. Nijedan element unutar #tft
+   zato nema data-i18n.
+
+   Engleski je zadan i stoji u samom markupu, hrvatski je u rjecniku nize.
+   Izbor se pamti pod istim kljucem kao na glavnoj stranici, pa jezik prati
+   posjetitelja s jedne stranice na drugu.
+   ───────────────────────────────────────────────────────────────────────── */
+const HR = {
+  "html.lang":"hr",
+  "html.title":"OBD-II simulator - proba grafičkog sučelja (v0.7)",
+  "h1":"Proba grafičkog sučelja",
+  "sub":"Ekran 2,4&Prime; ILI9341, 240 × 320 px, vodoravno <b>320 × 240</b><br>\n    Boje, visine redaka i tekstovi dolaze iz <code>firmware/src/ui/</code>",
+  "caption":"Ekran je prikazan u pravoj razlučivosti 320 × 240, uvećan dva puta.\n      Visina zaglavlja (28 px), retka (22 px) i broj vidljivih redaka (8)\n      preuzeti su iz <code>screen.h</code>, pa je ovo stvarna gustoća sadržaja.",
+  "knobAria":"Enkoder ENC1",
+  "encsw":"spojeno, bez funkcije",
+  "encswLog":"spojeno na GPIO39, firmware ga ne cita",
+  "k.ok":"spremi",
+  "k.clear":"poništi",
+  "k.back":"natrag",
+  "logTitle":"Događaji koje sučelje prima",
+  "logEmpty":"Pomakni palicu ili zakreni enkoder.",
+  "lg1":"<b>Palica</b> gore, dolje, lijevo, desno - navigacija",
+  "lg2":"<b>Palica, klik</b> - odabir i ulazak u uređivanje",
+  "lg3":"<b>Enkoder</b> - mijenja vrijednost, brži zakret veći korak",
+  "lg4":"<b>Enkoder, tipkalo</b> - spojeno, softver ga ne koristi",
+  "lg5":"<b>CONFIRM</b> sprema, <b>CLEAR</b> poništava, <b>RETURN</b> vraća natrag",
+  "lg6":"<b>Greške</b> - klik odabire kod, lijevo i desno mijenjaju stanje",
+  "lg7":"<b>CLEAR</b> bez odabranog koda pita prije brisanja svih",
+  "lg8":"Tipkovnica: <kbd>↑</kbd><kbd>↓</kbd><kbd>←</kbd><kbd>→</kbd>\n       <kbd>Enter</kbd> odabir, <kbd>,</kbd><kbd>.</kbd> enkoder,\n       <kbd>c</kbd> <kbd>x</kbd> <kbd>Esc</kbd>"
+};
+const EN_EXTRA = {
+  "html.lang":"en",
+  "html.title":"OBD-II Simulator - interface mock-up (v0.7)",
+  "encswLog":"wired to GPIO39, the firmware does not read it"
+};
+
+const I18N_NODES = document.querySelectorAll("[data-i18n]");
+const EN = {};
+I18N_NODES.forEach(el => { EN[el.getAttribute("data-i18n")] = el.innerHTML; });
+Object.keys(EN_EXTRA).forEach(k => { EN[k] = EN_EXTRA[k]; });
+/* the aria-label lives in an attribute, so it is snapshotted separately */
+const ariaNode = document.querySelector("[data-i18n-aria]");
+EN["knobAria"] = ariaNode ? ariaNode.getAttribute("aria-label") : "";
+
+let lang = "en";
+function dict(k){ return lang === "hr" ? (HR[k] !== undefined ? HR[k] : EN[k]) : EN[k]; }
+
+function applyLang(next){
+  lang = next === "hr" ? "hr" : "en";
+  I18N_NODES.forEach(el => {
+    const v = dict(el.getAttribute("data-i18n"));
+    if (v !== undefined) el.innerHTML = v;
+  });
+  if (ariaNode) ariaNode.setAttribute("aria-label", dict("knobAria"));
+  document.documentElement.setAttribute("lang", dict("html.lang"));
+  document.title = dict("html.title");
+  document.querySelectorAll("#langSwitch button").forEach(b => {
+    b.setAttribute("aria-pressed", String(b.dataset.lang === lang));
+  });
+  paint();   /* the screen is redrawn from the model, always in English */
+}
+
+document.querySelectorAll("#langSwitch button").forEach(b => {
+  b.addEventListener("click", () => applyLang(b.dataset.lang));
+});
+
+/* English is the default, always. The choice is deliberately not remembered,
+   so every load starts in English. */
+applyLang("en");
+</script>
+</body>
+</html>
