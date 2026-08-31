@@ -30,11 +30,25 @@ The **v0.7 board has been fabricated and assembled** in one unit. A commercial
 ELM327 adapter connects to it, reads all 21 parameters and the fault codes, and
 draws its own 12 V from pin 16 while doing so.
 
+## The website
+
+The project has a landing page at **<https://filipraic.github.io/obd2-simulator/>**,
+which is the short version of everything below: what the device does, what it is
+built from and where to get the files. Two things on it are worth opening even if
+the page itself is skipped, because neither can be shown in a README:
+
+| Page | What it is |
+|---|---|
+| [The user interface demo](https://filipraic.github.io/obd2-simulator/UI-demo/) | the screens `firmware/src/ui/screens/` draws on the display, redrawn in a browser and walked with the same encoder and joystick controls the device has, so the interface can be tried before anything is built |
+| [The interactive board view](https://filipraic.github.io/obd2-simulator/OBD2-board-v0.7/) | the v0.7 board drawn in the browser, with the tracks, the ground pour, the vias, the pads and the components as five layers that switch on and off, and a tooltip on every part. Generated from `obd2-simulator.kicad_pcb` by `hardware/kicad/scripts/generate_pcb_html.py` |
+
 ## Where to read what
 
 The wiki is written for someone using or rebuilding the device. The files in
-this repository are the record of how it was built and why. Both languages of
-the wiki carry the same content.
+this repository are the record of how it was built and why. The wiki is in
+English, which is the language of the project. A Croatian translation of the
+same pages exists but is not published yet, and if it goes up it will take an
+`-HR` suffix, leaving the page names below unchanged.
 
 | Question | Wiki page | In this repository |
 |---|---|---|
