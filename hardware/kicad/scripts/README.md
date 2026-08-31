@@ -78,7 +78,7 @@ neither.
 
 | Output | Destination | Note |
 |---|---|---|
-| `render-top.png`, `render-bottom.png` | `../` (`hardware/kicad/`) | `kicad-cli pcb render`, also used as a documentation figure |
+| `render-top.png`, `render-bottom.png` | `../` (`hardware/kicad/`) | `kicad-cli pcb render`. Both are embedded in `hardware/README.md` and the top one is a documentation figure, so they have to be regenerated with every board or routing change |
 | Gerbers, Excellon drill, gbrjob | `../../gerber/` | see [`../../gerber/README.md`](../../gerber/README.md) |
 | `obd2-simulator-v07-for-fabrication.zip` | `../../gerber/` | `make_fab_zip.py`, exactly nine production layers and no auxiliary ones |
 | `schema1-4.svg`, `blok.svg`, `canchain.svg` | `../../` (`hardware/`) | `generate_figures.py`, English. The only schematics a GitHub visitor gets |
